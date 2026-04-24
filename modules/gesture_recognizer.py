@@ -1,7 +1,7 @@
 import cv2
 import mediapipe as mp
 import numpy as np
-
+ 
 class GestureRecognizer:
     """
     Detects hand gestures from an image and maps them to letters A-Z.
