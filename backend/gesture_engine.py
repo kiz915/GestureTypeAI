@@ -1,21 +1,21 @@
-"""
-GestureType AI — Gesture Recognition Engine
-Handles MediaPipe hand detection, OpenCV camera feed,
-and gesture-to-action mapping.
-"""
-
 import cv2
 import mediapipe as mp
 import numpy as np
-import pyautogui
 import threading
 import base64
+import os
+
+# Disable pyautogui in server environments (no GUI support)
+IS_SERVER = os.environ.get("RENDER") or os.environ.get("GITHUB") or os.environ.get("CI")
+
+if not IS_SERVER:
+    import pyautogui
 
 
 class GestureEngine:
     """
-    Core gesture recognition engine.
-    Uses MediaPipe Hands for landmark detection.
+    Core gesture recognition engine using MediaPipe Hands.
+    Safe for both local and deployment environments.
     """
 
     MODES = ['typing', 'sign-language', 'pc-control']
@@ -37,7 +37,6 @@ class GestureEngine:
             min_tracking_confidence=0.5
         )
 
-        # Callback registered via @engine.on_gesture
         self._gesture_callback = None
 
     def on_gesture(self, fn):
@@ -47,14 +46,26 @@ class GestureEngine:
 
     def _emit_gesture(self, gesture, confidence):
         if self._gesture_callback:
-            self._gesture_callback(gesture, confidence)
+            try:
+                self._gesture_callback(gesture, confidence)
+            except Exception as e:
+                print("Callback error:", e)
 
     def start(self):
-        """Start camera capture and recognition loop in a background thread."""
-        self.cap = cv2.VideoCapture(self.camera_id)
-        self.running = True
-        self.thread = threading.Thread(target=self._loop, daemon=True)
-        self.thread.start()
+        """Start camera safely."""
+        try:
+            self.cap = cv2.VideoCapture(self.camera_id)
+
+            if not self.cap.isOpened():
+                print("❌ Camera not accessible (likely server environment)")
+                return
+
+            self.running = True
+            self.thread = threading.Thread(target=self._loop, daemon=True)
+            self.thread.start()
+
+        except Exception as e:
+            print("❌ Error starting engine:", e)
 
     def stop(self):
         """Stop recognition and release camera."""
@@ -63,44 +74,53 @@ class GestureEngine:
             self.cap.release()
 
     def get_frame_base64(self):
-        """Capture a single frame and return it as a base64 JPEG string."""
+        """Return current frame as base64 (for frontend display)."""
         if not self.cap or not self.cap.isOpened():
             return None
+
         ret, frame = self.cap.read()
         if not ret:
             return None
+
         _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
         return base64.b64encode(buffer).decode('utf-8')
 
     def _loop(self):
-        """Main recognition loop (runs in background thread)."""
-        while self.running and self.cap.isOpened():
-            ret, frame = self.cap.read()
-            if not ret:
-                break
+        """Main gesture recognition loop."""
+        try:
+            while self.running and self.cap and self.cap.isOpened():
+                ret, frame = self.cap.read()
+                if not ret:
+                    break
 
-            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            results = self.hands.process(frame_rgb)
+                frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                results = self.hands.process(frame_rgb)
 
-            if results.multi_hand_landmarks:
-                for hand_landmarks in results.multi_hand_landmarks:
-                    gesture, confidence = self._classify(hand_landmarks)
-                    if gesture:
-                        self._emit_gesture(gesture, confidence)
+                if results.multi_hand_landmarks:
+                    for hand_landmarks in results.multi_hand_landmarks:
+                        gesture, confidence = self._classify(hand_landmarks)
 
-                        if self.mode == 'pc-control':
-                            self._handle_pc_control(gesture)
+                        if gesture:
+                            self._emit_gesture(gesture, confidence)
+
+                            if self.mode == 'pc-control':
+                                self._handle_pc_control(gesture)
+
+        except Exception as e:
+            print("❌ Loop error:", e)
 
     def _classify(self, landmarks):
         """
-        Placeholder classifier — replace with your trained model.
-        Returns (gesture_name, confidence_float) or (None, 0).
+        Placeholder classifier.
+        Replace with ML model.
         """
-        # TODO: Load and run TensorFlow/scikit-learn model here
         return None, 0.0
 
     def _handle_pc_control(self, gesture):
-        """Map gestures to pyautogui PC control actions."""
+        """Map gestures to system actions (only works locally)."""
+        if IS_SERVER:
+            return  # Skip on server
+
         actions = {
             'swipe_right': lambda: pyautogui.hotkey('alt', 'right'),
             'swipe_left':  lambda: pyautogui.hotkey('alt', 'left'),
@@ -108,6 +128,10 @@ class GestureEngine:
             'thumbs_down': lambda: pyautogui.press('volumedown'),
             'open_palm':   lambda: pyautogui.hotkey('ctrl', 'space'),
         }
+
         action = actions.get(gesture)
         if action:
-            action()
+            try:
+                action()
+            except Exception as e:
+                print("PC control error:", e)
