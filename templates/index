@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GestureType AI — Hand Gesture Intelligence</title>
+  <meta name="description" content="Convert hand gestures to text, control your PC, and type A-Z using AI-powered sign language recognition." />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Nunito:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet" />
+  <!-- Socket.IO for backend integration -->
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+</head>
+<body>
+  <!-- NAV -->
+  <nav class="navbar" id="navbar">
+    <div class="nav-inner">
+      <a href="#" class="logo">
+        <span class="logo-icon">✦</span>
+        <span class="logo-text">GestureType <em>AI</em></span>
+      </a>
+      <ul class="nav-links">
+        <li><a href="#features">Features</a></li>
+        <li><a href="#demo">Live Demo</a></li>
+        <li><a href="#gestures">Gestures</a></li>
+        <li><a href="#tech">Tech Stack</a></li>
+        <li><a href="#docs">Docs</a></li>
+      </ul>
+      <div class="nav-actions">
+        <button class="theme-toggle" id="themeToggle" title="Toggle theme">
+          <span class="icon-sun">☀</span>
+          <span class="icon-moon">☽</span>
+        </button>
+        <a href="https://github.com/" class="btn btn-ghost" target="_blank">GitHub</a>
+        <a href="#demo" class="btn btn-primary">Try Live Demo</a>
+      </div>
+      <button class="hamburger" id="hamburger">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+    <div class="mobile-menu" id="mobileMenu">
+      <a href="#features">Features</a>
+      <a href="#demo">Live Demo</a>
+      <a href="#gestures">Gestures</a>
+      <a href="#tech">Tech Stack</a>
+      <a href="#docs">Docs</a>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <section class="hero" id="home">
+    <div class="hero-bg">
+      <div class="orb orb-1"></div>
+      <div class="orb orb-2"></div>
+      <div class="orb orb-3"></div>
+      <div class="grid-overlay"></div>
+    </div>
+    <div class="hero-content">
+      <div class="badge-pill">
+        <span class="pulse-dot"></span>
+        AI-Powered · Real-Time · Open Source
+      </div>
+      <h1 class="hero-title">
+        Type with your<br />
+        <span class="gradient-text">Hands.</span>
+      </h1>
+      <p class="hero-sub">
+        GestureType AI translates hand gestures into text, signs, and PC controls — powered by MediaPipe &amp; TensorFlow. No keyboard. No mouse. Just you.
+      </p>
+      <div class="hero-cta">
+        <a href="#features" class="btn btn-primary btn-lg">
+          <span class="btn-icon">✦</span> Explore Features
+        </a>
+        <a href="#gestures" class="btn btn-outline btn-lg">Gesture Library</a>
+      </div>
+      <div class="hero-stats">
+        <div class="stat"><strong>26</strong><span>Letters</span></div>
+        <div class="stat-div"></div>
+        <div class="stat"><strong>50+</strong><span>Gestures</span></div>
+        <div class="stat-div"></div>
+        <div class="stat"><strong>~98%</strong><span>Accuracy</span></div>
+        <div class="stat-div"></div>
+        <div class="stat"><strong>Real-Time</strong><span>Processing</span></div>
+      </div>
+    </div>
+
+    <!-- CAMERA PANEL — moved here from demo section -->
+    <div class="hero-visual">
+      <div class="hero-cam-wrapper">
+        <div class="hero-cam-label">
+          <span class="pulse-dot"></span>
+          Live Gesture Cam
+        </div>
+        <div class="camera-frame" id="cameraFrame" style="aspect-ratio:4/3; background:var(--bg-3); border-radius:var(--radius); border:1px solid var(--border); position:relative; overflow:hidden; width:100%; max-width:420px;">
+          <div class="camera-placeholder" id="cameraPlaceholder">
+            <div class="cam-icon-wrap">
+              <div class="cam-ring"></div>
+              <span class="cam-icon">📷</span>
+            </div>
+            <p>Camera is off</p>
+            <small>Click below to enable</small>
+          </div>
+          <video id="webcamVideo" autoplay muted playsinline></video>
+          <canvas id="overlayCanvas"></canvas>
+          <div class="camera-hud" id="cameraHud" style="display:none;">
+            <div class="hud-top">
+              <span class="hud-live"><span class="pulse-dot"></span>LIVE</span>
+              <span class="hud-fps" id="hudFps">30 FPS</span>
+            </div>
+            <div class="hud-gesture">
+              <span>Detected: </span>
+              <strong id="detectedGesture">—</strong>
+            </div>
+          </div>
+        </div>
+        <div class="hero-cam-controls">
+          <button class="cam-btn" id="camToggle">
+            <span class="cam-btn-icon">📷</span>
+            <span id="camBtnText">Enable Camera</span>
+          </button>
+          <button class="cam-btn cam-btn-secondary" id="camFlip">↔ Flip</button>
+          <button class="cam-btn cam-btn-secondary" id="camSnapshot">📸</button>
+        </div>
+        <div class="hero-cam-output">
+          <div class="hero-big-letter" id="bigLetter">—</div>
+          <div class="confidence-bar" style="padding:0 4px;">
+            <span style="font-size:0.75rem;color:var(--text-3);">Confidence</span>
+            <div class="bar-track" style="flex:1;"><div class="bar-fill" id="demoBar" style="width:0%"></div></div>
+            <span style="font-size:0.75rem;color:var(--text-3);" id="demoConf">—</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FEATURES -->
+  <section class="features" id="features">
+    <div class="container">
+      <div class="section-header">
+        <span class="eyebrow">What It Does</span>
+        <h2>Powerful Features</h2>
+        <p>A complete hand-gesture intelligence platform — from typing to PC control.</p>
+      </div>
+      <div class="features-grid">
+        <div class="feature-card feature-large">
+          <div class="feature-icon">🔤</div>
+          <h3>A–Z Gesture Typing</h3>
+          <p>Type every letter of the English alphabet using hand poses. ASL-based mapping with custom gesture training support.</p>
+          <div class="feature-tag">Core Feature</div>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🤝</div>
+          <h3>Sign Language → Text</h3>
+          <p>Real-time ASL & ISL recognition converts signing into readable text instantly.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🖥</div>
+          <h3>PC Control</h3>
+          <p>Swipe to scroll, pinch to zoom, gesture to copy/paste, switch windows hands-free.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">📷</div>
+          <h3>Camera Integration</h3>
+          <p>One-click camera activation. Works with any webcam. Processes at 30fps locally.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🧠</div>
+          <h3>Custom Training</h3>
+          <p>Train custom gestures for your own shortcuts, macros, and commands.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🌐</div>
+          <h3>Multi-Language</h3>
+          <p>Support for ASL, ISL, BSL gesture sets with community-contributed packs.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">♿</div>
+          <h3>Accessibility First</h3>
+          <p>Designed to empower people with mobility impairments to interact with any computer.</p>
+        </div>
+        <div class="feature-card feature-large">
+          <div class="feature-icon">⚡</div>
+          <h3>Edge Processing</h3>
+          <p>100% on-device inference. No cloud, no latency, no privacy concerns. Your gestures stay yours.</p>
+          <div class="feature-tag">Privacy-Safe</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- LIVE DEMO -->
+  <section class="demo-section" id="demo">
+    <div class="container">
+      <div class="section-header">
+        <span class="eyebrow">Interactive</span>
+        <h2>Live Demo</h2>
+        <p>Enable the camera at the top of the page, then watch your gestures appear as text below.</p>
+      </div>
+
+      <div class="demo-layout" style="grid-template-columns:1fr;">
+        <!-- Output Panel (full width since camera is in hero) -->
+        <div class="output-panel">
+          <div class="output-header">
+            <span>Text Output</span>
+            <div class="output-actions">
+              <button class="icon-btn" id="copyOutput" title="Copy">⎘ Copy</button>
+              <button class="icon-btn" id="clearOutput" title="Clear">✕ Clear</button>
+              <button class="icon-btn" id="speakOutput" title="Speak">🔊 Speak</button>
+            </div>
+          </div>
+          <div class="output-area" id="outputArea">
+            <span class="output-placeholder">Your typed text will appear here...</span>
+          </div>
+
+          <div class="gesture-mode-tabs" style="margin-top:8px;">
+            <button class="mode-tab active" data-mode="typing">✍ Typing</button>
+            <button class="mode-tab" data-mode="sign">🤝 Sign Language</button>
+            <button class="mode-tab" data-mode="control">🖥 PC Control</button>
+          </div>
+
+          <div class="gesture-shortcuts">
+            <h4>Quick Gestures</h4>
+            <div class="shortcuts-grid">
+              <div class="shortcut"><span>✌</span><small>Space</small></div>
+              <div class="shortcut"><span>👆</span><small>Enter</small></div>
+              <div class="shortcut"><span>🤙</span><small>Backspace</small></div>
+              <div class="shortcut"><span>👊</span><small>Caps Lock</small></div>
+              <div class="shortcut"><span>🖐</span><small>Stop</small></div>
+              <div class="shortcut"><span>👌</span><small>Copy</small></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Gesture Demo Simulator -->
+      <div class="gesture-simulator">
+        <h3>Try Gestures (Click to simulate)</h3>
+        <div class="alpha-grid" id="alphaGrid"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- GESTURE MAP -->
+  <section class="gesture-map" id="gestures">
+    <div class="container">
+      <div class="section-header">
+        <span class="eyebrow">Reference</span>
+        <h2>Gesture Library</h2>
+        <p>Complete ASL-based hand gesture mapping for all 26 letters and control commands.</p>
+      </div>
+
+      <div class="gesture-search-bar">
+        <input type="text" id="gestureSearch" placeholder="Search gesture... e.g. 'A' or 'scroll'" />
+        <select id="gestureFilter">
+          <option value="all">All Categories</option>
+          <option value="alpha">Alphabet</option>
+          <option value="control">PC Control</option>
+          <option value="special">Special</option>
+        </select>
+      </div>
+
+      <div class="gesture-grid" id="gestureGrid"></div>
+    </div>
+  </section>
+
+  <!-- TECH STACK -->
+  <section class="tech-section" id="tech">
+    <div class="container">
+      <div class="section-header">
+        <span class="eyebrow">Under the Hood</span>
+        <h2>Tech Stack</h2>
+      </div>
+      <div class="tech-grid">
+        <div class="tech-card">
+          <div class="tech-logo">🖐</div>
+          <h4>MediaPipe Hands</h4>
+          <p>Google's hand landmark detection — 21 keypoints per hand at 30fps</p>
+        </div>
+        <div class="tech-card">
+          <div class="tech-logo">🧠</div>
+          <h4>TensorFlow.js</h4>
+          <p>On-device ML inference for gesture classification and custom training</p>
+        </div>
+        <div class="tech-card">
+          <div class="tech-logo">🐍</div>
+          <h4>Python + OpenCV</h4>
+          <p>Desktop backend for PC control gestures, pyautogui integration</p>
+        </div>
+        <div class="tech-card">
+          <div class="tech-logo">⚡</div>
+          <h4>PyAutoGUI</h4>
+          <p>Translates recognized gestures into real keyboard and mouse actions</p>
+        </div>
+        <div class="tech-card">
+          <div class="tech-logo">🌐</div>
+          <h4>WebRTC</h4>
+          <p>Browser camera access with real-time video stream processing</p>
+        </div>
+        <div class="tech-card">
+          <div class="tech-logo">📊</div>
+          <h4>NumPy + Sklearn</h4>
+          <p>Feature extraction and gesture model training pipeline</p>
+        </div>
+      </div>
+
+      <div class="architecture-diagram">
+        <h3>System Architecture</h3>
+        <div class="arch-flow">
+          <div class="arch-node">📷<br/><small>Camera Feed</small></div>
+          <div class="arch-arrow">→</div>
+          <div class="arch-node">🖐<br/><small>Hand Detection</small></div>
+          <div class="arch-arrow">→</div>
+          <div class="arch-node">📐<br/><small>Landmark Extraction</small></div>
+          <div class="arch-arrow">→</div>
+          <div class="arch-node">🧠<br/><small>Gesture Classifier</small></div>
+          <div class="arch-arrow">→</div>
+          <div class="arch-node">⚡<br/><small>Action Output</small></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- DOCS / SETUP -->
+  <section class="docs-section" id="docs">
+    <div class="container">
+      <div class="section-header">
+        <span class="eyebrow">Get Started</span>
+        <h2>Setup Guide</h2>
+      </div>
+      <div class="docs-layout">
+        <div class="docs-nav">
+          <button class="doc-tab active" data-doc="install">Installation</button>
+          <button class="doc-tab" data-doc="usage">Usage</button>
+          <button class="doc-tab" data-doc="training">Training</button>
+          <button class="doc-tab" data-doc="api">API</button>
+        </div>
+        <div class="docs-content">
+          <div class="doc-panel active" id="doc-install">
+            <h3>Installation</h3>
+            <div class="code-block">
+              <div class="code-header"><span>bash</span><button class="copy-code">Copy</button></div>
+              <pre><code># Clone the repository
+git clone https://github.com/yourusername/gesturetype-ai.git
+cd gesturetype-ai
+
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt</code></pre>
+            </div>
+            <div class="code-block">
+              <div class="code-header"><span>requirements.txt</span><button class="copy-code">Copy</button></div>
+              <pre><code>mediapipe==0.10.9
+opencv-python==4.8.1.78
+tensorflow==2.15.0
+pyautogui==0.9.54
+numpy==1.26.2
+scikit-learn==1.3.2
+flask==3.0.0
+flask-socketio==5.3.6</code></pre>
+            </div>
+          </div>
+
+          <div class="doc-panel" id="doc-usage">
+            <h3>Running GestureType AI</h3>
+            <div class="code-block">
+              <div class="code-header"><span>bash</span><button class="copy-code">Copy</button></div>
+              <pre><code># Run gesture typing mode
+python main.py --mode typing
+
+# Run sign language mode
+python main.py --mode sign-language
+
+# Run PC control mode
+python main.py --mode pc-control
+
+# Launch web interface
+python app.py  # Open http://localhost:5000</code></pre>
+            </div>
+          </div>
+
+          <div class="doc-panel" id="doc-training">
+            <h3>Training Custom Gestures</h3>
+            <div class="code-block">
+              <div class="code-header"><span>python</span><button class="copy-code">Copy</button></div>
+              <pre><code># Collect training data
+python collect_data.py --gesture "thumbs_up" --samples 200
+
+# Train the model
+python train.py --epochs 50 --model custom_gestures
+
+# Evaluate accuracy
+python evaluate.py --model custom_gestures</code></pre>
+            </div>
+          </div>
+
+          <div class="doc-panel" id="doc-api">
+            <h3>Python API</h3>
+            <div class="code-block">
+              <div class="code-header"><span>python</span><button class="copy-code">Copy</button></div>
+              <pre><code>from gesturetype import GestureEngine
+
+# Initialize engine
+engine = GestureEngine(mode="typing", camera_id=0)
+
+# Register callback
+@engine.on_gesture
+def on_gesture(gesture, confidence):
+    print(f"Detected: {gesture} ({confidence:.0%})")
+
+# Start recognition
+engine.start()
+
+# Stop when done
+engine.stop()</code></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA BANNER -->
+  <section class="cta-section">
+    <div class="container">
+      <div class="cta-card">
+        <div class="cta-orb"></div>
+        <h2>Start Typing with Your Hands</h2>
+        <p>Open source. Privacy-first. Zero cloud dependency.</p>
+        <div class="cta-btns">
+          <a href="https://github.com/" class="btn btn-primary btn-lg" target="_blank">⭐ Star on GitHub</a>
+          <a href="#demo" class="btn btn-outline btn-lg">Try Demo</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <div class="logo">
+            <span class="logo-icon">✦</span>
+            <span class="logo-text">GestureType <em>AI</em></span>
+          </div>
+          <p>AI-powered hand gesture recognition for typing, sign language, and PC control.</p>
+          <div class="social-links">
+            <a href="#" title="GitHub">GH</a>
+            <a href="#" title="Twitter">TW</a>
+            <a href="#" title="Discord">DC</a>
+          </div>
+        </div>
+        <div class="footer-links">
+          <h5>Product</h5>
+          <a href="#features">Features</a>
+          <a href="#demo">Live Demo</a>
+          <a href="#gestures">Gesture Library</a>
+          <a href="#tech">Tech Stack</a>
+        </div>
+        <div class="footer-links">
+          <h5>Resources</h5>
+          <a href="#docs">Documentation</a>
+          <a href="#">API Reference</a>
+          <a href="#">Training Guide</a>
+          <a href="#">Changelog</a>
+        </div>
+        <div class="footer-links">
+          <h5>Community</h5>
+          <a href="#">GitHub Issues</a>
+          <a href="#">Discord Server</a>
+          <a href="#">Contribute</a>
+          <a href="#">License (MIT)</a>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2025 GestureType AI — Open Source under MIT License</span>
+        <span>Built with ❤ for Accessibility</span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- CHATBOT -->
+  <div class="chatbot-container" id="chatbotContainer">
+    <div class="chatbot-window" id="chatbotWindow" style="display:none;">
+      <div class="chatbot-header">
+        <div class="chatbot-avatar">✦</div>
+        <div>
+          <strong>GestureType Assistant</strong>
+          <small>AI-powered support</small>
+        </div>
+        <button class="chatbot-close" id="chatbotClose">✕</button>
+      </div>
+      <div class="chatbot-messages" id="chatbotMessages">
+        <div class="bot-message">
+          <div class="bot-avatar">✦</div>
+          <div class="message-bubble">
+            👋 Hi! I'm the GestureType AI assistant. Ask me anything about gestures, setup, sign language, or PC control!
+          </div>
+        </div>
+      </div>
+      <div class="chatbot-suggestions" id="chatbotSuggestions">
+        <button class="suggestion-chip" data-q="How do I enable the camera?">Enable camera?</button>
+        <button class="suggestion-chip" data-q="What gestures type letters?">Letter gestures?</button>
+        <button class="suggestion-chip" data-q="How to install GestureType?">Installation?</button>
+        <button class="suggestion-chip" data-q="What is sign language mode?">Sign Language?</button>
+      </div>
+      <div class="chatbot-input-row">
+        <input type="text" id="chatInput" placeholder="Ask me anything..." />
+        <button id="chatSend">↑</button>
+      </div>
+    </div>
+    <button class="chatbot-fab" id="chatbotFab">
+      <span class="fab-icon">💬</span>
+      <span class="fab-badge" id="fabBadge">1</span>
+    </button>
+  </div>
+
+
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/socket-backend.js') }}"></script>
+</body>
+</html>
